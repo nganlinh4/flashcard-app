@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
+import { Colors } from '@/constants/Colors';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Flashcard } from '@/types/flashcard';
@@ -19,6 +21,9 @@ export default function FlashcardsScreen() {
   const [mnemonicImage, setMnemonicImage] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
+
+  // Animation values
+  const flipAnimation = useSharedValue(0);
 
   // Load initial data
   useEffect(() => {
@@ -52,9 +57,39 @@ export default function FlashcardsScreen() {
 
   // Handle card flip
   const handleFlip = () => {
-    setIsFlipped(!isFlipped);
-    setShowAnswer(!showAnswer);
+    if (flipAnimation.value === 0) {
+      flipAnimation.value = withSpring(180, { damping: 10 });
+    } else {
+      flipAnimation.value = withSpring(0, { damping: 10 });
+    }
+    setTimeout(() => {
+      setIsFlipped(!isFlipped);
+      setShowAnswer(!showAnswer);
+    }, 250);
   };
+
+  const animatedFrontStyle = useAnimatedStyle(() => {
+    const rotateY = interpolate(flipAnimation.value, [0, 180], [0, 180]);
+    return {
+      transform: [
+        { rotateY: `${rotateY}deg` },
+        { perspective: 1000 }
+      ],
+      backfaceVisibility: 'hidden' as const,
+      opacity: flipAnimation.value <= 90 ? 1 : 0,
+    };
+  });
+
+  const animatedBackStyle = useAnimatedStyle(() => {
+    const rotateY = interpolate(flipAnimation.value, [0, 180], [180, 360]);
+    return {
+      transform: [
+        { rotateY: `${rotateY}deg` },
+        { perspective: 1000 }
+      ],
+      backfaceVisibility: 'hidden' as const,
+    };
+  });
 
   // Handle pronunciation
   const handleSpeak = async () => {
@@ -158,84 +193,101 @@ export default function FlashcardsScreen() {
   return (
     <ThemedView style={styles.mainContainer}>
       {userProgress && <ProgressDisplay progress={userProgress} />}
-
+      
       {cards.length > 0 && (
-        <>
+        <View style={styles.contentContainer}>
           <TouchableOpacity 
-            style={[styles.card, isFlipped && styles.cardFlipped]}
+            style={styles.cardContainer}
             onPress={handleFlip}
             activeOpacity={0.7}
           >
-            <ThemedText type="title" style={styles.cardText}>
-              {showAnswer ? cards[currentIndex].english : cards[currentIndex].korean}
-            </ThemedText>
-            
-            {showAnswer && (
-              <>
-                <ThemedText type="default" style={styles.exampleText}>
-                  {cards[currentIndex].example}
-                </ThemedText>
-                
-                {mnemonicImage && (
-                  <Image 
-                    source={{ uri: mnemonicImage }} 
-                    style={styles.mnemonicImage}
-                    resizeMode="contain"
-                  />
-                )}
-              </>
-            )}
+            <Animated.View style={[styles.card, animatedFrontStyle]}>
+              <ThemedText type="title" style={styles.cardText}>
+                {cards[currentIndex].korean}
+              </ThemedText>
+            </Animated.View>
+
+            <Animated.View style={[styles.card, styles.cardFlipped, animatedBackStyle]}>
+              <ThemedText type="title" style={styles.cardText}>
+                {cards[currentIndex].english}
+              </ThemedText>
+              
+              {mnemonicImage && (
+                <Image 
+                  source={{ uri: mnemonicImage }} 
+                  style={styles.mnemonicImage}
+                  resizeMode="contain"
+                />
+              )}
+            </Animated.View>
           </TouchableOpacity>
 
-          <View style={styles.pronunciationContainer}>
-            <TouchableOpacity 
-              style={styles.speakButton}
-              onPress={handleSpeak}
-              disabled={isSpeaking}
-            >
-              <ThemedText style={styles.speakButtonText}>
-                {isSpeaking ? 'Speaking...' : 'Hear Pronunciation'}
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.progressContainer}>
-            <ThemedText type="default">
-              Card {currentIndex + 1} of {cards.length}
-            </ThemedText>
-          </View>
-        </>
-      )}
-
-      {showAnswer && (
-        <View style={styles.ratingContainer}>
-          <ThemedText type="subtitle" style={styles.ratingText}>
-            How well did you know this?
-          </ThemedText>
-          <View style={styles.ratingButtons}>
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <TouchableOpacity
-                key={rating}
-                style={styles.ratingButton}
-                onPress={() => handleRating(rating)}
+          <View style={styles.controlsContainer}>
+            <View style={styles.pronunciationContainer}>
+              <TouchableOpacity 
+                style={styles.speakButton}
+                onPress={handleSpeak}
+                disabled={isSpeaking}
               >
-                <ThemedText>{rating}</ThemedText>
+                <ThemedText style={styles.speakButtonText}>
+                  {isSpeaking ? 'Speaking...' : 'Hear Pronunciation'}
+                </ThemedText>
               </TouchableOpacity>
-            ))}
+            </View>
+
+            <View style={styles.progressContainer}>
+              <ThemedText type="default">
+                Card {currentIndex + 1} of {cards.length}
+              </ThemedText>
+            </View>
+
+            {showAnswer && (
+              <View style={styles.ratingContainer}>
+                <ThemedText type="subtitle" style={styles.ratingText}>
+                  How well did you know this?
+                </ThemedText>
+                <View style={styles.ratingButtons}>
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <TouchableOpacity
+                      key={rating}
+                      style={styles.ratingButton}
+                      onPress={() => handleRating(rating)}
+                    >
+                      <ThemedText>{rating}</ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={styles.refreshButton} 
+              onPress={refreshDeck}
+            >
+              <ThemedText style={styles.refreshButtonText}>New Deck</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
       )}
-
-      <TouchableOpacity style={styles.refreshButton} onPress={refreshDeck}>
-        <ThemedText style={styles.refreshButtonText}>New Deck</ThemedText>
-      </TouchableOpacity>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cardContainer: {
+    width: '100%',
+    minHeight: 300,
+    position: 'relative',
+  },
   mainContainer: {
     flex: 1,
+    padding: 20,
+  },
+  controlsContainer: {
     padding: 20,
   },
   loadingContainer: {
@@ -258,7 +310,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     padding: 15,
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.buttonPrimary,
     borderRadius: 10,
   },
   retryButtonText: {
@@ -267,7 +319,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     minHeight: 300,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.light.cardBackground,
     borderRadius: 10,
     padding: 20,
     justifyContent: 'center',
@@ -280,17 +332,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cardFlipped: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: Colors.light.cardBackground,
+    position: 'absolute',
   },
   cardText: {
     fontSize: 24,
     textAlign: 'center',
     marginBottom: 20,
-  },
-  exampleText: {
-    marginTop: 10,
-    fontStyle: 'italic',
-    textAlign: 'center',
   },
   mnemonicImage: {
     width: 200,
@@ -303,7 +351,7 @@ const styles = StyleSheet.create({
   },
   speakButton: {
     padding: 10,
-    backgroundColor: '#34C759',
+    backgroundColor: Colors.light.buttonPrimary,
     borderRadius: 5,
     alignItems: 'center',
   },
@@ -336,11 +384,11 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 10,
-    backgroundColor: '#FF9500',
+    backgroundColor: Colors.light.buttonSecondary,
     borderRadius: 5,
     alignItems: 'center',
   },
   refreshButtonText: {
     color: 'white',
   },
-});
+} as const);
