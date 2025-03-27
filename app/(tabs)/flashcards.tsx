@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
+import { useState, useEffect, useCallback } from 'react';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
 import { Colors } from '@/constants/Colors';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,8 +12,13 @@ import { generateMnemonicImage } from '@/services/imageGenerationService';
 import { speakKorean } from '@/services/ttsService';
 import { updateProgress, getProgress, UserProgress } from '@/services/progressService';
 import ProgressDisplay from '@/components/ProgressDisplay';
+import { FlashCard } from '@/components/FlashCard';
+import { CardControls } from '@/components/CardControls';
+import { SwipeIndicators } from '@/components/SwipeIndicators';
 
 export default function FlashcardsScreen() {
+  const { category } = useLocalSearchParams();
+  
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -21,17 +28,17 @@ export default function FlashcardsScreen() {
   const [mnemonicImage, setMnemonicImage] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  // Animation values
-  const flipAnimation = useSharedValue(0);
-
-  // Load initial data
+  // Handle card loading based on category
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
+        const categoryId = category as string | undefined;
+        
         const [cards, progress] = await Promise.all([
-          generateFlashcards(10),
+          generateFlashcards(10, categoryId ? parseInt(categoryId.charAt(0)) : 1),
           getProgress()
         ]);
         
@@ -53,43 +60,13 @@ export default function FlashcardsScreen() {
     };
 
     loadInitialData();
-  }, []);
+  }, [category]);
 
   // Handle card flip
-  const handleFlip = () => {
-    if (flipAnimation.value === 0) {
-      flipAnimation.value = withSpring(180, { damping: 10 });
-    } else {
-      flipAnimation.value = withSpring(0, { damping: 10 });
-    }
-    setTimeout(() => {
-      setIsFlipped(!isFlipped);
-      setShowAnswer(!showAnswer);
-    }, 250);
-  };
-
-  const animatedFrontStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flipAnimation.value, [0, 180], [0, 180]);
-    return {
-      transform: [
-        { rotateY: `${rotateY}deg` },
-        { perspective: 1000 }
-      ],
-      backfaceVisibility: 'hidden' as const,
-      opacity: flipAnimation.value <= 90 ? 1 : 0,
-    };
-  });
-
-  const animatedBackStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flipAnimation.value, [0, 180], [180, 360]);
-    return {
-      transform: [
-        { rotateY: `${rotateY}deg` },
-        { perspective: 1000 }
-      ],
-      backfaceVisibility: 'hidden' as const,
-    };
-  });
+  const handleFlip = useCallback(() => {
+    setIsFlipped(!isFlipped);
+    setShowAnswer(!showAnswer);
+  }, [isFlipped, showAnswer]);
 
   // Handle pronunciation
   const handleSpeak = async () => {
@@ -120,6 +97,12 @@ export default function FlashcardsScreen() {
     currentCard.nextReview.setDate(currentCard.nextReview.getDate() + daysToAdd);
     
     setCards(updatedCards);
+    
+    // Show confetti for good ratings
+    if (rating >= 4) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 2000);
+    }
     
     // Update user progress
     if (userProgress) {
@@ -173,7 +156,7 @@ export default function FlashcardsScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={Colors.light.tint} />
         <ThemedText style={styles.loadingText}>Loading your Korean flashcards...</ThemedText>
       </ThemedView>
     );
@@ -192,81 +175,38 @@ export default function FlashcardsScreen() {
 
   return (
     <ThemedView style={styles.mainContainer}>
-      {userProgress && <ProgressDisplay progress={userProgress} />}
+      {/* Progress display */}
+      {userProgress && 
+        <Animated.View entering={FadeInDown.springify()}>
+          <ProgressDisplay progress={userProgress} />
+        </Animated.View>
+      }
+      
+      {/* Swipe indicators */}
+      <SwipeIndicators />
       
       {cards.length > 0 && (
         <View style={styles.contentContainer}>
-          <TouchableOpacity 
-            style={styles.cardContainer}
-            onPress={handleFlip}
-            activeOpacity={0.7}
-          >
-            <Animated.View style={[styles.card, animatedFrontStyle]}>
-              <ThemedText type="title" style={styles.cardText}>
-                {cards[currentIndex].korean}
-              </ThemedText>
-            </Animated.View>
+          {/* Card */}
+          {cards[currentIndex] && (
+            <FlashCard
+              card={cards[currentIndex]}
+              mnemonicImage={mnemonicImage}
+              onFlip={handleFlip}
+              onSwipe={handleRating}
+            />
+          )}
 
-            <Animated.View style={[styles.card, styles.cardFlipped, animatedBackStyle]}>
-              <ThemedText type="title" style={styles.cardText}>
-                {cards[currentIndex].english}
-              </ThemedText>
-              
-              {mnemonicImage && (
-                <Image 
-                  source={{ uri: mnemonicImage }} 
-                  style={styles.mnemonicImage}
-                  resizeMode="contain"
-                />
-              )}
-            </Animated.View>
-          </TouchableOpacity>
-
-          <View style={styles.controlsContainer}>
-            <View style={styles.pronunciationContainer}>
-              <TouchableOpacity 
-                style={styles.speakButton}
-                onPress={handleSpeak}
-                disabled={isSpeaking}
-              >
-                <ThemedText style={styles.speakButtonText}>
-                  {isSpeaking ? 'Speaking...' : 'Hear Pronunciation'}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <ThemedText type="default">
-                Card {currentIndex + 1} of {cards.length}
-              </ThemedText>
-            </View>
-
-            {showAnswer && (
-              <View style={styles.ratingContainer}>
-                <ThemedText type="subtitle" style={styles.ratingText}>
-                  How well did you know this?
-                </ThemedText>
-                <View style={styles.ratingButtons}>
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <TouchableOpacity
-                      key={rating}
-                      style={styles.ratingButton}
-                      onPress={() => handleRating(rating)}
-                    >
-                      <ThemedText>{rating}</ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            <TouchableOpacity 
-              style={styles.refreshButton} 
-              onPress={refreshDeck}
-            >
-              <ThemedText style={styles.refreshButtonText}>New Deck</ThemedText>
-            </TouchableOpacity>
-          </View>
+          {/* Controls */}
+          <CardControls
+            currentIndex={currentIndex}
+            totalCards={cards.length}
+            showAnswer={showAnswer}
+            isSpeaking={isSpeaking}
+            onSpeak={handleSpeak}
+            onRating={handleRating}
+            onRefresh={refreshDeck}
+          />
         </View>
       )}
     </ThemedView>
@@ -278,16 +218,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  cardContainer: {
-    width: '100%',
-    minHeight: 300,
-    position: 'relative',
-  },
   mainContainer: {
     flex: 1,
-    padding: 20,
-  },
-  controlsContainer: {
     padding: 20,
   },
   loadingContainer: {
@@ -316,79 +248,4 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: 'white',
   },
-  card: {
-    width: '100%',
-    minHeight: 300,
-    backgroundColor: Colors.light.cardBackground,
-    borderRadius: 10,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  cardFlipped: {
-    backgroundColor: Colors.light.cardBackground,
-    position: 'absolute',
-  },
-  cardText: {
-    fontSize: 24,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  mnemonicImage: {
-    width: 200,
-    height: 200,
-    marginTop: 20,
-    borderRadius: 10,
-  },
-  pronunciationContainer: {
-    marginBottom: 20,
-  },
-  speakButton: {
-    padding: 10,
-    backgroundColor: Colors.light.buttonPrimary,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  speakButtonText: {
-    color: 'white',
-  },
-  progressContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  ratingContainer: {
-    marginTop: 20,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  ratingText: {
-    marginBottom: 10,
-  },
-  ratingButtons: {
-    flexDirection: 'row',
-  },
-  ratingButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  refreshButton: {
-    padding: 10,
-    backgroundColor: Colors.light.buttonSecondary,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  refreshButtonText: {
-    color: 'white',
-  },
-} as const);
+});

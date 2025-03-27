@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getProgress } from '@/services/progressService';
+import { getProgress, UserProgress } from '@/services/progressService';
 import { Flashcard } from '@/types/flashcard';
 import { generateFlashcards } from '@/services/aiService';
 import { HelloWave } from '@/components/HelloWave';
@@ -18,7 +18,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const [todayCards, setTodayCards] = useState<Flashcard[]>([]);
-  const [progress, setProgress] = useState<any>(null);
+  const [progress, setProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
@@ -43,9 +43,12 @@ export default function HomeScreen() {
   const calculateLevel = (): number => {
     if (!progress) return 1;
     
-    const totalCards = Object.values(progress.cardsByLevel).reduce(
-      (a: number, b: number) => a + b, 0
+    // Fix the type issue by ensuring we're working with numbers
+    const totalCards = Object.entries(progress.cardsByLevel).reduce(
+      (acc, [_, value]) => acc + (typeof value === 'number' ? value : 0), 
+      0
     );
+    
     return Math.min(5, Math.floor(totalCards / 20) + 1);
   };
   
