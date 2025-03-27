@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Colors } from '@/constants/Colors';
 import { ThemedView } from '@/components/ThemedView';
@@ -174,42 +175,44 @@ export default function FlashcardsScreen() {
   }
 
   return (
-    <ThemedView style={styles.mainContainer}>
-      {/* Progress display */}
-      {userProgress && 
-        <Animated.View entering={FadeInDown.springify()}>
-          <ProgressDisplay progress={userProgress} />
-        </Animated.View>
-      }
-      
-      {/* Swipe indicators */}
-      <SwipeIndicators />
-      
-      {cards.length > 0 && (
-        <View style={styles.contentContainer}>
-          {/* Card */}
-          {cards[currentIndex] && (
-            <FlashCard
-              card={cards[currentIndex]}
-              mnemonicImage={mnemonicImage}
-              onFlip={handleFlip}
-              onSwipe={handleRating}
-            />
-          )}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemedView style={styles.mainContainer}>
+        {/* Progress display */}
+        {userProgress && 
+          <Animated.View entering={FadeInDown.springify()}>
+            <ProgressDisplay progress={userProgress} />
+          </Animated.View>
+        }
+        
+        {/* Swipe indicators */}
+        <SwipeIndicators />
+        
+        {cards.length > 0 && (
+          <View style={styles.contentContainer}>
+            {/* Card */}
+            {cards[currentIndex] && (
+              <FlashCard
+                card={cards[currentIndex]}
+                mnemonicImage={mnemonicImage}
+                onFlip={handleFlip}
+                onSwipe={handleRating}
+              />
+            )}
 
-          {/* Controls */}
-          <CardControls
-            currentIndex={currentIndex}
-            totalCards={cards.length}
-            showAnswer={showAnswer}
-            isSpeaking={isSpeaking}
-            onSpeak={handleSpeak}
-            onRating={handleRating}
-            onRefresh={refreshDeck}
-          />
-        </View>
-      )}
-    </ThemedView>
+            {/* Controls */}
+            <CardControls
+              currentIndex={currentIndex}
+              totalCards={cards.length}
+              showAnswer={showAnswer}
+              isSpeaking={isSpeaking}
+              onSpeak={handleSpeak}
+              onRating={handleRating}
+              onRefresh={refreshDeck}
+            />
+          </View>
+        )}
+      </ThemedView>
+    </GestureHandlerRootView>
   );
 }
 
