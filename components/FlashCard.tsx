@@ -3,6 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
+  runOnJS,
   withSpring, 
   interpolate,
   useAnimatedGestureHandler,
@@ -87,7 +88,7 @@ export function FlashCard({ card, mnemonicImage, onFlip, onSwipe }: FlashCardPro
         const rating = direction > 0 ? 4 : 2; // high rating for right, low for left
         
         cardPosition.value = withSpring(direction * SCREEN_WIDTH * 1.5, { duration: 300 }, () => {
-          onSwipe(rating);
+          runOnJS(onSwipe)(rating);
         });
       } else {
         // Return to center
