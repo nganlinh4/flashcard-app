@@ -151,11 +151,9 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    // Replace shadow properties with boxShadow for web compatibility
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+    elevation: 3, // Keep elevation for Android
   },
   gradient: {
     flex: 1,
