@@ -79,7 +79,7 @@ export default function HomeScreen() {
               </ThemedText>
             </View>
             <ThemedText type="subtitle">
-              {progress?.streak ? `${progress.streak} day streak! 🔥` : 'Welcome to your Korean studies'}
+              {progress?.streakDays ? `${progress.streakDays} day streak! 🔥` : 'Welcome to your Korean studies'}
             </ThemedText>
           </View>
         </View>
@@ -115,7 +115,7 @@ export default function HomeScreen() {
               onPress={navigateToStudy}
             >
               <LinearGradient 
-                colors={['#4c66ef', '#3b5fe2']} 
+                colors={['#4c66ef', '#3b5fe2'] as const} 
                 style={styles.actionGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -130,7 +130,7 @@ export default function HomeScreen() {
               onPress={navigateToCategories}
             >
               <LinearGradient 
-                colors={['#f5576c', '#f093fb']} 
+                colors={['#f5576c', '#f093fb'] as const} 
                 style={styles.actionGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -142,7 +142,7 @@ export default function HomeScreen() {
             
             <TouchableOpacity style={styles.actionButton}>
               <LinearGradient 
-                colors={['#43e97b', '#38f9d7']} 
+                colors={['#43e97b', '#38f9d7'] as const} 
                 style={styles.actionGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -168,7 +168,7 @@ export default function HomeScreen() {
                 color={colorScheme === 'dark' ? Colors.dark.tint : Colors.light.tint} 
               />
               <ThemedText type="title" style={styles.statValue}>
-                {progress?.streak || 0}
+                {progress?.streakDays || 0}
               </ThemedText>
               <ThemedText style={styles.statLabel}>Day Streak</ThemedText>
             </View>
@@ -225,13 +225,13 @@ export default function HomeScreen() {
         </Animated.View>
         
         {/* Achievement unlocked */}
-        {progress?.achievements?.length > 0 && (
+        {progress?.achievements && progress.achievements.length > 0 && (
           <Animated.View entering={FadeInUp.delay(600).springify()} style={styles.achievementContainer}>
             <View style={styles.achievementContent}>
               <Ionicons name="trophy" size={24} color="#FFD700" />
               <View style={styles.achievementTextContainer}>
                 <ThemedText type="subtitle">Achievement Unlocked!</ThemedText>
-                <ThemedText>{progress.achievements[progress.achievements.length - 1]}</ThemedText>
+                <ThemedText>{progress?.achievements[progress.achievements.length - 1]}</ThemedText>
               </View>
             </View>
           </Animated.View>

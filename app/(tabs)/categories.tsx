@@ -16,7 +16,7 @@ type Category = {
   description: string;
   count: number;
   image: any;
-  colors: string[];
+  colors: readonly [string, string]; // Fixed to match LinearGradient's expected type
 };
 
 // Mock categories data
@@ -27,7 +27,7 @@ const categories: Category[] = [
     description: 'Essential Korean vocabulary for beginners',
     count: 100,
     image: require('@/assets/images/react-logo.png'),
-    colors: ['#FF9F59', '#FFC259']
+    colors: ['#FF9F59', '#FFC259'] as const
   },
   {
     id: 'travel',
@@ -35,7 +35,7 @@ const categories: Category[] = [
     description: 'Useful phrases for your Korean trip',
     count: 75,
     image: require('@/assets/images/react-logo.png'),
-    colors: ['#4FACFE', '#00F2FE']
+    colors: ['#4FACFE', '#00F2FE'] as const
   },
   {
     id: 'food',
@@ -43,7 +43,7 @@ const categories: Category[] = [
     description: 'Restaurant vocabulary and food names',
     count: 60,
     image: require('@/assets/images/react-logo.png'),
-    colors: ['#B465DA', '#CF6CC9']
+    colors: ['#B465DA', '#CF6CC9'] as const
   },
   {
     id: 'business',
@@ -51,7 +51,7 @@ const categories: Category[] = [
     description: 'Professional vocabulary for work',
     count: 50,
     image: require('@/assets/images/react-logo.png'),
-    colors: ['#43E97B', '#38F9D7']
+    colors: ['#43E97B', '#38F9D7'] as const
   },
   {
     id: 'slang',
@@ -59,7 +59,7 @@ const categories: Category[] = [
     description: 'Modern Korean slang and expressions',
     count: 40,
     image: require('@/assets/images/react-logo.png'),
-    colors: ['#FA709A', '#FEE140']
+    colors: ['#FA709A', '#FEE140'] as const
   },
 ];
 

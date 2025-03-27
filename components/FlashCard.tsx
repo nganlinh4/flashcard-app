@@ -149,7 +149,7 @@ export function FlashCard({ card, mnemonicImage, onFlip, onSwipe }: FlashCardPro
         >
           <Animated.View style={[styles.card, animatedFrontStyle]}>
             <LinearGradient
-              colors={['#ffffff10', '#ffffff05']}
+              colors={['#ffffff10', '#ffffff05'] as const}
               style={styles.cardGradient}
             >
               {renderFrontContent()}
@@ -158,7 +158,7 @@ export function FlashCard({ card, mnemonicImage, onFlip, onSwipe }: FlashCardPro
 
           <Animated.View style={[styles.card, styles.cardFlipped, animatedBackStyle]}>
             <LinearGradient
-              colors={['#ffffff10', '#ffffff05']}
+              colors={['#ffffff10', '#ffffff05'] as const}
               style={styles.cardGradient}
             >
               {renderBackContent()}
