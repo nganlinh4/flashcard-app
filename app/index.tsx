@@ -66,11 +66,11 @@ export default function HomeScreen() {
   };
   
   const navigateToStudy = () => {
-    router.push('/(tabs)/flashcards');
+    router.push('/flashcards');
   };
   
   const navigateToCategories = () => {
-    router.push('/(tabs)/categories');
+    router.push('/categories');
   };
   
   const handleChallengeComplete = (challengeId: string) => {

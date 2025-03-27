@@ -72,7 +72,7 @@ export default function CategoriesScreen() {
     setSelectedCategory(categoryId);
     // Navigate to flashcards with the selected category
     router.push({
-      pathname: '/(tabs)/flashcards',
+      pathname: '/flashcards',
       params: { category: categoryId }
     });
   };

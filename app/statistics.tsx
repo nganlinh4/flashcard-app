@@ -59,7 +59,6 @@ export default function StatisticsScreen() {
 
   const renderBarChart = () => {
     const maxValue = Math.max(...stats.studyHistory.map(day => day.count));
-
     return (
       <View style={styles.chartContainer}>
         <ThemedText type="subtitle" style={styles.chartTitle}>Study History</ThemedText>

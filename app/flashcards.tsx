@@ -3,7 +3,6 @@ import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-nat
 import { useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
 import { Colors } from '@/constants/Colors';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -59,7 +58,6 @@ export default function FlashcardsScreen() {
         setIsLoading(false);
       }
     };
-
     loadInitialData();
   }, [category]);
 
@@ -198,7 +196,6 @@ export default function FlashcardsScreen() {
                 onSwipe={handleRating}
               />
             )}
-
             {/* Controls */}
             <CardControls
               currentIndex={currentIndex}
