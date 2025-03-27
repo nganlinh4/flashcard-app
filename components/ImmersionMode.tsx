@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Image, ImageBackground } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Image,
+  ScrollView,
+  Dimensions
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { 
+  FadeIn, 
+  FadeOut,
+  SlideInRight,
+  useSharedValue,
+  withTiming,
+  useAnimatedStyle
+} from 'react-native-reanimated';
+
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
-import { Ionicons } from '@expo/vector-icons';
-import { speakKorean } from '@/services/ttsService';
-import Animated, { FadeIn, FadeOut, SlideInUp } from 'react-native-reanimated';
+import { Colors } from '@/constants/Colors';
 import { Flashcard } from '@/types/flashcard';
-import { Audio } from 'expo-av';
+import { speakKorean } from '@/services/ttsService';
+import { PronunciationPractice } from './PronunciationPractice';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface ImmersionModeProps {
   isVisible: boolean;
@@ -14,324 +33,382 @@ interface ImmersionModeProps {
   cards: Flashcard[];
 }
 
-/**
- * A full immersion learning experience that combines visual, audio and interactive elements
- * to create a more engaging and effective language learning environment.
- */
+// Mock scenarios for immersion learning
+const scenarios = [
+  {
+    id: 'cafe',
+    title: 'At the Café',
+    description: 'Learn how to order drinks and food in Korean',
+    imageUrl: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
+    phrases: [
+      { korean: '커피 주세요', english: 'Coffee please', context: 'Ordering a coffee' },
+      { korean: '얼마예요?', english: 'How much is it?', context: 'Asking for the price' },
+      { korean: '여기서 먹을게요', english: 'I\'ll eat here', context: 'Dining in' },
+      { korean: '포장해 주세요', english: 'Please wrap it up (to go)', context: 'Taking out' }
+    ]
+  },
+  {
+    id: 'transport',
+    title: 'Public Transport',
+    description: 'Useful phrases for navigating Korean public transportation',
+    imageUrl: 'https://images.unsplash.com/photo-1553413077-190dd305871c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
+    phrases: [
+      { korean: '이 버스가 어디로 가요?', english: 'Where does this bus go?', context: 'Asking for directions' },
+      { korean: '지하철역이 어디예요?', english: 'Where is the subway station?', context: 'Looking for the subway' },
+      { korean: '다음 정류장에서 내릴게요', english: 'I\'ll get off at the next stop', context: 'Telling the driver' },
+      { korean: '교통카드 어디서 살 수 있어요?', english: 'Where can I buy a transportation card?', context: 'Asking about tickets' }
+    ]
+  },
+  {
+    id: 'shopping',
+    title: 'Shopping',
+    description: 'Learn how to shop and bargain in Korean markets',
+    imageUrl: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
+    phrases: [
+      { korean: '이거 얼마예요?', english: 'How much is this?', context: 'Asking for price' },
+      { korean: '좀 깎아 주세요', english: 'Please give me a discount', context: 'Bargaining' },
+      { korean: '다른 색상 있어요?', english: 'Do you have other colors?', context: 'Looking for options' },
+      { korean: '카드로 결제할게요', english: 'I\'ll pay with card', context: 'Paying' }
+    ]
+  }
+];
+
 export function ImmersionMode({ isVisible, onClose, cards }: ImmersionModeProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [ambientSound, setAmbientSound] = useState<Audio.Sound | null>(null);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [backgroundScene, setBackgroundScene] = useState('cafe');
+  const [selectedScenario, setSelectedScenario] = useState<typeof scenarios[0] | null>(null);
+  const [showPractice, setShowPractice] = useState(false);
+  const [selectedPhrase, setSelectedPhrase] = useState<string>('');
   
-  const scenes = {
-    cafe: {
-      image: require('@/assets/images/react-logo.png'), // Replace with actual scene images
-      audio: null, // Replace with actual audio files when available
-      name: 'Café'
-    },
-    market: {
-      image: require('@/assets/images/react-logo.png'),
-      audio: null,
-      name: 'Market'
-    },
-    office: {
-      image: require('@/assets/images/react-logo.png'),
-      audio: null,
-      name: 'Office'
-    },
-  };
+  // Animation values
+  const backdropOpacity = useSharedValue(0);
   
-  // Play ambient sound when immersion mode is active
   useEffect(() => {
     if (isVisible) {
-      loadAndPlayAmbient();
+      backdropOpacity.value = withTiming(1, { duration: 300 });
     } else {
-      stopAmbient();
+      backdropOpacity.value = withTiming(0, { duration: 200 });
     }
-    
-    return () => {
-      stopAmbient();
+  }, [isVisible]);
+  
+  const backdropStyle = useAnimatedStyle(() => {
+    return {
+      opacity: backdropOpacity.value,
     };
-  }, [isVisible, backgroundScene]);
+  });
   
-  const loadAndPlayAmbient = async () => {
-    try {
-      // This would be actual ambient sound in a real implementation
-      // const { sound } = await Audio.Sound.createAsync(scenes[backgroundScene].audio);
-      // setAmbientSound(sound);
-      // await sound.playAsync();
-    } catch (error) {
-      console.error("Error loading ambient sound:", error);
-    }
+  const handleScenarioPress = (scenario: typeof scenarios[0]) => {
+    setSelectedScenario(scenario);
   };
   
-  const stopAmbient = async () => {
-    if (ambientSound) {
-      await ambientSound.stopAsync();
-      await ambientSound.unloadAsync();
-    }
+  const handleBackPress = () => {
+    setSelectedScenario(null);
   };
   
-  const speakPhrase = async () => {
-    if (cards.length > 0 && currentIndex < cards.length) {
-      await speakKorean(cards[currentIndex].korean);
-    }
+  const handlePhrasePress = (phrase: typeof scenarios[0]['phrases'][0]) => {
+    speakKorean(phrase.korean);
   };
   
-  const nextCard = () => {
-    if (currentIndex < cards.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setShowTranslation(false);
-    }
+  const handlePracticePress = (phrase: string) => {
+    setSelectedPhrase(phrase);
+    setShowPractice(true);
   };
   
-  const prevCard = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setShowTranslation(false);
-    }
-  };
-  
-  const toggleTranslation = () => {
-    setShowTranslation(!showTranslation);
-  };
-  
-  const changeScene = (scene: string) => {
-    setBackgroundScene(scene);
-  };
-  
-  if (!isVisible || cards.length === 0) return null;
-  
-  return (
-    <Modal
-      animationType="fade"
-      transparent={false}
-      visible={isVisible}
-      onRequestClose={onClose}
-    >
-      <ImageBackground
-        source={scenes[backgroundScene as keyof typeof scenes].image}
-        style={styles.background}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close-circle" size={32} color="white" />
-            </TouchableOpacity>
-            <ThemedText style={styles.sceneTitle}>
-              {scenes[backgroundScene as keyof typeof scenes].name} Immersion
-            </ThemedText>
-          </View>
-          
-          <View style={styles.sceneSelector}>
-            {Object.keys(scenes).map((scene) => (
-              <TouchableOpacity
-                key={scene}
-                style={[
-                  styles.sceneButton,
-                  backgroundScene === scene && styles.activeSceneButton
-                ]}
-                onPress={() => changeScene(scene)}
-              >
-                <ThemedText style={styles.sceneText}>
-                  {scenes[scene as keyof typeof scenes].name}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <Animated.View
-            entering={SlideInUp}
-            style={styles.contentContainer}
+  const renderScenarioList = () => {
+    return (
+      <ScrollView style={styles.scenarioList} showsVerticalScrollIndicator={false}>
+        <ThemedText type="title" style={styles.title}>
+          Immersion Mode
+        </ThemedText>
+        
+        <ThemedText style={styles.description}>
+          Practice Korean in real-life scenarios. Choose a situation below to start learning useful phrases.
+        </ThemedText>
+        
+        {scenarios.map((scenario) => (
+          <TouchableOpacity 
+            key={scenario.id}
+            style={styles.scenarioCard}
+            onPress={() => handleScenarioPress(scenario)}
           >
-            <View style={styles.phraseCard}>
-              <ThemedText type="title" style={styles.korean}>
-                {cards[currentIndex].korean}
+            <Image 
+              source={{ uri: scenario.imageUrl }} 
+              style={styles.scenarioImage}
+            />
+            <View style={styles.scenarioContent}>
+              <ThemedText type="subtitle" style={styles.scenarioTitle}>
+                {scenario.title}
               </ThemedText>
+              <ThemedText style={styles.scenarioDescription}>
+                {scenario.description}
+              </ThemedText>
+              <View style={styles.scenarioButton}>
+                <ThemedText style={styles.scenarioButtonText}>Start</ThemedText>
+                <Ionicons name="chevron-forward" size={16} color={Colors.light.tint} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+  
+  const renderScenarioDetail = () => {
+    if (!selectedScenario) return null;
+    
+    return (
+      <Animated.View 
+        entering={SlideInRight.springify()} 
+        style={styles.detailContainer}
+      >
+        <View style={styles.detailHeader}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
+            <ThemedText style={styles.backText}>Back</ThemedText>
+          </TouchableOpacity>
+          <ThemedText type="subtitle" numberOfLines={1} style={styles.detailTitle}>
+            {selectedScenario.title}
+          </ThemedText>
+        </View>
+        
+        <ScrollView style={styles.detailContent}>
+          <Image 
+            source={{ uri: selectedScenario.imageUrl }} 
+            style={styles.detailImage}
+          />
+          
+          <ThemedText style={styles.detailDescription}>
+            {selectedScenario.description}
+          </ThemedText>
+          
+          <ThemedText type="subtitle" style={styles.phrasesTitle}>
+            Useful Phrases
+          </ThemedText>
+          
+          {selectedScenario.phrases.map((phrase, index) => (
+            <View key={`phrase-${index}`} style={styles.phraseCard}>
+              <View style={styles.phraseTextContainer}>
+                <ThemedText style={styles.phraseKorean}>
+                  {phrase.korean}
+                </ThemedText>
+                <ThemedText style={styles.phraseEnglish}>
+                  {phrase.english}
+                </ThemedText>
+                <ThemedText style={styles.phraseContext}>
+                  {phrase.context}
+                </ThemedText>
+              </View>
               
-              {showTranslation && (
-                <Animated.View entering={FadeIn} exiting={FadeOut}>
-                  <ThemedText style={styles.english}>
-                    {cards[currentIndex].english}
-                  </ThemedText>
-                  
-                  {cards[currentIndex].example && (
-                    <ThemedText style={styles.example}>
-                      "{cards[currentIndex].example}"
-                    </ThemedText>
-                  )}
-                </Animated.View>
-              )}
-              
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
+              <View style={styles.phraseActions}>
+                <TouchableOpacity 
                   style={styles.actionButton}
-                  onPress={toggleTranslation}
+                  onPress={() => handlePhrasePress(phrase)}
                 >
-                  <Ionicons name={showTranslation ? "eye-off" : "eye"} size={24} color="white" />
-                  <ThemedText style={styles.actionText}>
-                    {showTranslation ? "Hide" : "Show"} Translation
-                  </ThemedText>
+                  <Ionicons name="volume-high-outline" size={22} color={Colors.light.tint} />
                 </TouchableOpacity>
                 
-                <TouchableOpacity
+                <TouchableOpacity 
                   style={styles.actionButton}
-                  onPress={speakPhrase}
+                  onPress={() => handlePracticePress(phrase.korean)}
                 >
-                  <Ionicons name="volume-high" size={24} color="white" />
-                  <ThemedText style={styles.actionText}>
-                    Speak Phrase
-                  </ThemedText>
+                  <Ionicons name="mic-outline" size={22} color={Colors.light.tint} />
                 </TouchableOpacity>
               </View>
             </View>
-            
-            <View style={styles.navigation}>
-              <TouchableOpacity
-                style={[styles.navButton, currentIndex === 0 && styles.disabledButton]}
-                onPress={prevCard}
-                disabled={currentIndex === 0}
-              >
-                <Ionicons name="chevron-back" size={24} color="white" />
-              </TouchableOpacity>
-              
-              <ThemedText style={styles.pageIndicator}>
-                {currentIndex + 1} / {cards.length}
-              </ThemedText>
-              
-              <TouchableOpacity
-                style={[styles.navButton, currentIndex === cards.length - 1 && styles.disabledButton]}
-                onPress={nextCard}
-                disabled={currentIndex === cards.length - 1}
-              >
-                <Ionicons name="chevron-forward" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </View>
-      </ImageBackground>
+          ))}
+          
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
+    );
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <Modal
+      visible={isVisible}
+      animationType="fade"
+      transparent
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[styles.container, backdropStyle]}>
+        <ThemedView style={styles.content}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={24} color={Colors.light.tint} />
+          </TouchableOpacity>
+          
+          {!selectedScenario ? renderScenarioList() : renderScenarioDetail()}
+        </ThemedView>
+        
+        {/* Pronunciation Practice Modal */}
+        {showPractice && (
+          <Modal
+            visible={showPractice}
+            animationType="slide"
+            onRequestClose={() => setShowPractice(false)}
+          >
+            <PronunciationPractice
+              koreanText={selectedPhrase}
+              onClose={() => setShowPractice(false)}
+            />
+          </Modal>
+        )}
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
+  container: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  overlay: {
+  content: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 40,
-    marginBottom: 20,
+    marginTop: 50,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
   },
   closeButton: {
-    padding: 5,
-  },
-  sceneTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 40,
-  },
-  sceneSelector: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 30,
-  },
-  sceneButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    marginHorizontal: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  activeSceneButton: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
+  title: {
+    fontSize: 28,
+    marginBottom: 15,
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
-  sceneText: {
-    color: 'white',
+  description: {
+    marginBottom: 25,
+    lineHeight: 22,
+    paddingHorizontal: 20,
+    opacity: 0.8,
+  },
+  scenarioList: {
+    flex: 1,
+  },
+  scenarioCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff08',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  scenarioImage: {
+    width: '100%',
+    height: 150,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  scenarioContent: {
+    padding: 15,
+  },
+  scenarioTitle: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  scenarioDescription: {
+    opacity: 0.7,
+    marginBottom: 15,
+    fontSize: 14,
+  },
+  scenarioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scenarioButtonText: {
+    color: Colors.light.tint,
+    fontWeight: '600',
+    marginRight: 5,
+  },
+  detailContainer: {
+    flex: 1,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffffff10',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  backText: {
+    color: Colors.light.tint,
     fontWeight: '600',
   },
-  contentContainer: {
+  detailTitle: {
+    fontSize: 18,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailImage: {
+    width: SCREEN_WIDTH,
+    height: 200,
+  },
+  detailDescription: {
+    padding: 20,
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  phrasesTitle: {
+    marginHorizontal: 20,
+    marginBottom: 10,
   },
   phraseCard: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 30,
-    borderRadius: 20,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  korean: {
-    fontSize: 32,
-    color: 'white',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  english: {
-    fontSize: 24,
-    color: 'white',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  example: {
-    fontSize: 16,
-    color: 'white',
-    fontStyle: 'italic',
-    opacity: 0.8,
-    textAlign: 'center',
-  },
-  actionButtons: {
     flexDirection: 'row',
-    marginTop: 30,
-    justifyContent: 'space-around',
-    width: '100%',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: '#ffffff08',
+    borderRadius: 12,
+  },
+  phraseTextContainer: {
+    flex: 1,
+  },
+  phraseKorean: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  phraseEnglish: {
+    marginBottom: 5,
+  },
+  phraseContext: {
+    fontSize: 12,
+    opacity: 0.6,
+  },
+  phraseActions: {
+    flexDirection: 'row',
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    padding: 12,
-    borderRadius: 30,
-  },
-  actionText: {
-    color: 'white',
-    marginLeft: 8,
-  },
-  navigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '60%',
-    marginTop: 30,
-  },
-  navButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
-  pageIndicator: {
-    color: 'white',
-    fontSize: 16,
+    marginLeft: 5,
+    backgroundColor: '#ffffff10',
+    borderRadius: 20,
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,9 @@ import { getProgress, UserProgress } from '@/services/progressService';
 import { Flashcard } from '@/types/flashcard';
 import { generateFlashcards } from '@/services/aiService';
 import { HelloWave } from '@/components/HelloWave';
+import { DailyChallenge } from '@/components/DailyChallenge';
+import { ImmersionMode } from '@/components/ImmersionMode';
+import { WordMatchGame } from '@/components/WordMatchGame';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -20,7 +23,11 @@ export default function HomeScreen() {
   const [todayCards, setTodayCards] = useState<Flashcard[]>([]);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showImmersion, setShowImmersion] = useState(false);
+  const [showWordMatch, setShowWordMatch] = useState(false);
+  const [lastGameScore, setLastGameScore] = useState<number | null>(null);
   
+  // Load user data on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -65,6 +72,26 @@ export default function HomeScreen() {
   const navigateToCategories = () => {
     router.push('/(tabs)/categories');
   };
+  
+  const handleChallengeComplete = (challengeId: string) => {
+    // In a real app, you would update this in a backend or local storage
+    console.log(`Challenge completed: ${challengeId}`);
+  };
+  
+  const handleStartChallenge = (challengeId: string) => {
+    if (challengeId.includes('immersion')) {
+      setShowImmersion(true);
+    } else if (challengeId.includes('speed')) {
+      setShowWordMatch(true);
+    } else {
+      navigateToStudy();
+    }
+  };
+  
+  const handleGameComplete = (score: number) => {
+    setLastGameScore(score);
+    // In a real app, you would update the user's score in a backend
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -101,6 +128,14 @@ export default function HomeScreen() {
           <ThemedText style={styles.goalText}>
             20/30 cards reviewed today
           </ThemedText>
+        </Animated.View>
+        
+        {/* Daily Challenges */}
+        <Animated.View entering={FadeInDown.delay(150).springify()}>
+          <DailyChallenge 
+            onCompleteChallenge={handleChallengeComplete}
+            onStartChallenge={handleStartChallenge}
+          />
         </Animated.View>
         
         {/* Quick actions */}
@@ -150,6 +185,54 @@ export default function HomeScreen() {
                 <Ionicons name="create" size={24} color="white" />
                 <ThemedText style={styles.actionText}>Create Cards</ThemedText>
               </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+        
+        {/* Game Center */}
+        <Animated.View entering={FadeInDown.delay(250).springify()}>
+          <View style={styles.sectionHeaderRow}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Game Center
+            </ThemedText>
+            {lastGameScore !== null && (
+              <ThemedText style={styles.lastScore}>
+                Last Score: {lastGameScore}
+              </ThemedText>
+            )}
+          </View>
+          
+          <View style={styles.gamesContainer}>
+            <TouchableOpacity 
+              style={styles.gameCard}
+              onPress={() => setShowWordMatch(true)}
+            >
+              <View style={[styles.gameIconContainer, { backgroundColor: '#4361EE' }]}>
+                <Ionicons name="grid-outline" size={28} color="white" />
+              </View>
+              <View style={styles.gameInfo}>
+                <ThemedText style={styles.gameTitle}>Word Match</ThemedText>
+                <ThemedText style={styles.gameDescription}>
+                  Match Korean words with their meanings
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ffffff80" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.gameCard}
+              onPress={() => setShowImmersion(true)}
+            >
+              <View style={[styles.gameIconContainer, { backgroundColor: '#2A9D8F' }]}>
+                <Ionicons name="globe-outline" size={28} color="white" />
+              </View>
+              <View style={styles.gameInfo}>
+                <ThemedText style={styles.gameTitle}>Immersion Mode</ThemedText>
+                <ThemedText style={styles.gameDescription}>
+                  Learn through visual scenarios
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ffffff80" />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -240,6 +323,26 @@ export default function HomeScreen() {
         {/* Bottom padding */}
         <View style={{ height: 40 }} />
       </ScrollView>
+      
+      {/* Immersion Mode */}
+      <ImmersionMode
+        isVisible={showImmersion}
+        onClose={() => setShowImmersion(false)}
+        cards={todayCards}
+      />
+      
+      {/* Word Match Game */}
+      <Modal
+        visible={showWordMatch}
+        animationType="slide"
+        onRequestClose={() => setShowWordMatch(false)}
+      >
+        <WordMatchGame
+          cards={todayCards}
+          onComplete={handleGameComplete}
+          onExit={() => setShowWordMatch(false)}
+        />
+      </Modal>
     </ThemedView>
   );
 }
@@ -303,6 +406,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 15,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    marginHorizontal: 20,
+  },
+  lastScore: {
+    color: Colors.light.tint,
+    fontWeight: '600',
+    fontSize: 14,
+  },
   actionsContainer: {
     flexDirection: 'row',
     marginHorizontal: 15,
@@ -330,6 +445,40 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     marginTop: 8,
+  },
+  gamesContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  gameCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff10',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+    elevation: 1,
+  },
+  gameIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  gameInfo: {
+    flex: 1,
+  },
+  gameTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  gameDescription: {
+    fontSize: 13,
+    opacity: 0.7,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -411,10 +560,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 1,
   },
   achievementTextContainer: {
-    marginLeft: 15,
-    flex: 1,
+    marginLeft: 10,
   },
 });

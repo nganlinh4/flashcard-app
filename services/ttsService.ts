@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Speech from 'expo-speech';
 
 // Interface for TTS response
 interface TTSResponse {
@@ -7,50 +8,59 @@ interface TTSResponse {
   error?: string;
 }
 
-export const speakKorean = async (text: string, speed: number = 1.0): Promise<TTSResponse> => {
+/**
+ * Speaks a Korean phrase with appropriate voice settings
+ * @param text The Korean text to be spoken
+ */
+export const speakKorean = async (text: string): Promise<void> => {
   try {
-    // Platform-specific implementation
-    if (Platform.OS === 'ios') {
-      // TODO: Implement iOS TTS using AVFoundation
-      return {
-        duration: text.length * 0.1,
-      };
-    } else if (Platform.OS === 'android') {
-      // TODO: Implement Android TTS using TextToSpeech
-      return {
-        duration: text.length * 0.1,
-      };
-    }
-
-    // Web implementation
-    if ('speechSynthesis' in window) {
-      return new Promise((resolve) => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ko-KR';
-        utterance.rate = speed;
-        
-        utterance.onend = () => {
-          resolve({
-            duration: utterance.text.length * 0.1,
-          });
-        };
-
-        window.speechSynthesis.speak(utterance);
-      });
-    }
-
-    // Fallback to API call if native/web not available
-    // TODO: Implement API call to Google/Kakao TTS
-    return {
-      duration: text.length * 0.1,
-    };
+    // Stop any currently playing speech
+    Speech.stop();
+    
+    // Use Korean voice if available, otherwise fall back to default
+    await Speech.speak(text, {
+      language: 'ko-KR',
+      rate: 0.9, // Slightly slower for language learning
+      pitch: 1.0,
+      volume: 1.0,
+    });
+    
+    return Promise.resolve();
   } catch (error) {
-    console.error('TTS Error:', error);
-    return {
-      duration: 0,
-      error: 'Failed to generate speech'
-    };
+    console.error('Error speaking Korean:', error);
+    return Promise.reject(error);
   }
+};
+
+/**
+ * Speaks an English phrase
+ * @param text The English text to be spoken
+ */
+export const speakEnglish = async (text: string): Promise<void> => {
+  try {
+    // Stop any currently playing speech
+    Speech.stop();
+    
+    await Speech.speak(text, {
+      language: 'en-US',
+      rate: 0.9,
+      pitch: 1.0,
+      volume: 1.0,
+    });
+    
+    return Promise.resolve();
+  } catch (error) {
+    console.error('Error speaking English:', error);
+    return Promise.reject(error);
+  }
+};
+
+/**
+ * Checks if TTS is available on the device
+ * @returns A promise that resolves to true if TTS is available
+ */
+export const isTTSAvailable = async (): Promise<boolean> => {
+  return await Speech.isSpeakingAvailableAsync();
 };
 
 export const analyzePronunciation = async (audioBlob: Blob, targetText: string): Promise<{
