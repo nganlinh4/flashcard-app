@@ -93,13 +93,6 @@ function RootLayoutNav() {
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
           }}
         />
-        <Tabs.Screen
-          name="explore"
-          options={{
-            title: 'Explore',
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="safari.fill" color={color} />,
-          }}
-        />
       </Tabs>
     </ThemeProvider>
   );
